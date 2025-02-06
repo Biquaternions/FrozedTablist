@@ -38,6 +38,8 @@ public class TabRunnable implements Runnable {
 						}
 					}
 				}
+
+				layout.setHeaderAndFooter();
 			}
 		}
 	}
