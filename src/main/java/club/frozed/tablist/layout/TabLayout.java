@@ -50,7 +50,7 @@ public class TabLayout {
 			String footer = (ChatColor.translateAlternateColorCodes('&', instance.getAdapter().getFooter(player)));
 
 			WrapperPlayServerPlayerListHeaderAndFooter packet = new WrapperPlayServerPlayerListHeaderAndFooter(
-					Component.text(header),
+					Component.text(header), // TODO: Will these 2 need MiniMessage?
 					Component.text(footer)
 			);
 
@@ -95,7 +95,7 @@ public class TabLayout {
 				teamName,
 				WrapperPlayServerTeams.TeamMode.ADD_ENTITIES,
 				new WrapperPlayServerTeams.ScoreBoardTeamInfo(
-						Component.text(teamName),
+						Component.text(teamName), // TODO: Will these 3 need MiniMessage?
 						Component.text(prefix),
 						Component.text(suffix),
 						WrapperPlayServerTeams.NameTagVisibility.ALWAYS,
@@ -122,7 +122,7 @@ public class TabLayout {
 		WrapperPlayServerPlayerInfo packet = new WrapperPlayServerPlayerInfo (
 				WrapperPlayServerPlayerInfo.Action.UPDATE_LATENCY,
 				new WrapperPlayServerPlayerInfo.PlayerData (
-						Component.text(player.getDisplayName()),
+						Component.text(player.getDisplayName()), // TODO: Will this need MiniMessage? Should it be .getName() or .getDisplayName()
 						new UserProfile (player.getUniqueId(), player.getName()),
 						GameMode.ADVENTURE,
 						ping
@@ -150,7 +150,7 @@ public class TabLayout {
 		newGameProfile.getProperties().put(TEXTURE_KEY, getSkinProperty(skin));
 
 		WrapperPlayServerPlayerInfo.PlayerData playerData = new WrapperPlayServerPlayerInfo.PlayerData (
-				Component.text(player.getDisplayName()),
+				Component.text(player.getDisplayName()), // TODO: Will this need MiniMessage? Should it be .getName() or .getDisplayName()
 				new UserProfile (player.getUniqueId(), player.getName()),
 				GameMode.ADVENTURE,
 				0
@@ -184,7 +184,7 @@ public class TabLayout {
 				gameProfile.getProperties().put(TEXTURE_KEY, property);
 
 				infoData.add(new WrapperPlayServerPlayerInfo.PlayerData (
-						Component.text(player.getDisplayName()),
+						Component.text(player.getDisplayName()), // TODO: Will this need MiniMessage? Should it be .getName() or .getDisplayName()
 						new UserProfile (gameProfile.getId(), gameProfile.getName()),
 						GameMode.SURVIVAL,
 						0
@@ -205,7 +205,7 @@ public class TabLayout {
 			gameProfile.getProperties().put(TEXTURE_KEY, property);
 
 			infoData.add(new WrapperPlayServerPlayerInfo.PlayerData (
-					Component.text(player.getDisplayName()),
+					Component.text(player.getDisplayName()), // TODO: Will this need MiniMessage? Should it be .getName() or .getDisplayName()
 					new UserProfile (gameProfile.getId(), gameProfile.getName()),
 					GameMode.SURVIVAL,
 					0
@@ -249,7 +249,7 @@ public class TabLayout {
 						teamName,
 						WrapperPlayServerTeams.TeamMode.ADD_ENTITIES,
 						new WrapperPlayServerTeams.ScoreBoardTeamInfo(
-								Component.text(teamName),
+								Component.text(teamName), // TODO: Will this need MiniMessage?
 								Component.empty(),
 								Component.empty(),
 								WrapperPlayServerTeams.NameTagVisibility.ALWAYS,
