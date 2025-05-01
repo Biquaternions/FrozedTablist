@@ -3,36 +3,25 @@ package club.frozed.tablist.layout;
 import club.frozed.tablist.FrozedTablist;
 import club.frozed.tablist.entry.TabEntry;
 import club.frozed.tablist.skin.Skin;
-import club.frozed.tablist.util.Reflection;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.player.GameMode;
+import com.github.retrooper.packetevents.protocol.player.UserProfile;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfo;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerListHeaderAndFooter;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
-import com.viaversion.viaversion.api.Via;
-import com.viaversion.viaversion.api.ViaAPI;
-import net.minecraft.server.v1_8_R3.EntityPlayer;
-import net.minecraft.server.v1_8_R3.IChatBaseComponent;
-import net.minecraft.server.v1_8_R3.IChatBaseComponent.ChatSerializer;
-import net.minecraft.server.v1_8_R3.MinecraftServer;
-import net.minecraft.server.v1_8_R3.PacketPlayOutPlayerInfo;
-import net.minecraft.server.v1_8_R3.PacketPlayOutPlayerInfo.EnumPlayerInfoAction;
-import net.minecraft.server.v1_8_R3.PacketPlayOutPlayerListHeaderFooter;
-import net.minecraft.server.v1_8_R3.PacketPlayOutScoreboardTeam;
-import net.minecraft.server.v1_8_R3.PlayerInteractManager;
-import net.minecraft.server.v1_8_R3.WorldServer;
-import net.minecraft.server.v1_8_R3.WorldSettings;
-import org.apache.commons.lang.StringEscapeUtils;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 import static club.frozed.tablist.skin.Skin.TEXTURE_KEY;
 
@@ -43,45 +32,29 @@ public class TabLayout {
 	private final Map<Integer, Skin> skinMapping = Maps.newHashMap();
 
 	private static final Map<UUID, TabLayout> layoutMapping = Maps.newHashMap();
-	private final ViaAPI<?> viaAPI = Via.getAPI();
-
-	private final MinecraftServer minecraftServer = MinecraftServer.getServer();
-	private final WorldServer worldServer = minecraftServer.getWorldServer(0);
-	private final PlayerInteractManager playerInteractManager = new PlayerInteractManager(worldServer);
+	private final PacketEventsAPI<?> packetAPI = PacketEvents.getAPI();
 
 	private final FrozedTablist instance;
 
 	private final Player player;
-	private final EntityPlayer entityPlayer;
 
 	public TabLayout(FrozedTablist instance, Player player) {
 		this.instance = instance;
 		this.player = player;
-
-		entityPlayer = ((CraftPlayer) player).getHandle();
 	}
 
 	public void setHeaderAndFooter() {
-		boolean continueAt = false;
-		if (Bukkit.getPluginManager().getPlugin("ViaVersion") != null) {
-			if (viaAPI.getPlayerVersion(player.getUniqueId()) >= 47) {
-				continueAt = true;
-			}
-		}
-
-		if (continueAt) {
+		boolean continueAt = this.packetAPI.getPlayerManager().getClientVersion(player).isNewerThanOrEquals(ClientVersion.V_1_8);
+        if (continueAt) {
 			String header = (ChatColor.translateAlternateColorCodes('&', instance.getAdapter().getHeader(player)));
 			String footer = (ChatColor.translateAlternateColorCodes('&', instance.getAdapter().getFooter(player)));
 
-			IChatBaseComponent headerComponent = ChatSerializer.a("{text:\"" + StringEscapeUtils.escapeJava(header) + "\"}");
-			IChatBaseComponent footerComponent = ChatSerializer.a("{text:\"" + StringEscapeUtils.escapeJava(footer) + "\"}");
+			WrapperPlayServerPlayerListHeaderAndFooter packet = new WrapperPlayServerPlayerListHeaderAndFooter(
+					Component.text(header),
+					Component.text(footer)
+			);
 
-			PacketPlayOutPlayerListHeaderFooter packet = new PacketPlayOutPlayerListHeaderFooter();
-
-			Reflection.getField(packet.getClass(), "a", Object.class).set(packet, headerComponent);
-			Reflection.getField(packet.getClass(), "b", Object.class).set(packet, footerComponent);
-
-			this.entityPlayer.playerConnection.sendPacket(packet);
+			this.packetAPI.getPlayerManager().sendPacket(player, packet);
 		}
 	}
 
@@ -118,16 +91,20 @@ public class TabLayout {
 		}
 
 		String teamName = "$" + getTeamAt(row, column);
-		PacketPlayOutScoreboardTeam packet = new PacketPlayOutScoreboardTeam();
-		Reflection.getField(packet.getClass(), "a", String.class).set(packet, teamName);
-		Reflection.getField(packet.getClass(), "b", String.class).set(packet, teamName);
-		Reflection.getField(packet.getClass(), "c", String.class).set(packet, prefix);
-		Reflection.getField(packet.getClass(), "d", String.class).set(packet, suffix);
-		Reflection.getField(packet.getClass(), "h", int.class).set(packet, 2);
-		Reflection.getField(packet.getClass(), "e", String.class).set(packet, ("always"));
-		Reflection.getField(packet.getClass(), "f", int.class).set(packet, -1);
-
-		entityPlayer.playerConnection.sendPacket(packet);
+		WrapperPlayServerTeams packet = new WrapperPlayServerTeams( // FIXME: No idea that h = 0 & f = -1 is
+				teamName,
+				WrapperPlayServerTeams.TeamMode.ADD_ENTITIES,
+				new WrapperPlayServerTeams.ScoreBoardTeamInfo(
+						Component.text(teamName),
+						Component.text(prefix),
+						Component.text(suffix),
+						WrapperPlayServerTeams.NameTagVisibility.ALWAYS,
+						WrapperPlayServerTeams.CollisionRule.NEVER,
+						NamedTextColor.WHITE,
+						WrapperPlayServerTeams.OptionData.NONE
+				)
+		);
+		this.packetAPI.getPlayerManager().sendPacket(player, packet);
 
 		int index = row + column * 20;
 		GameProfile gameProfile = profileMapping.get(index);
@@ -142,23 +119,21 @@ public class TabLayout {
 			return;
 		}
 
-		EntityPlayer entityPlayer = new EntityPlayer(minecraftServer, worldServer, gameProfile, playerInteractManager);
-		entityPlayer.ping = ping;
-		pingMapping.put(index, ping);
-
-		PacketPlayOutPlayerInfo packetPlayOutPlayerInfo = new PacketPlayOutPlayerInfo(EnumPlayerInfoAction.UPDATE_LATENCY, entityPlayer);
-		this.entityPlayer.playerConnection.sendPacket(packetPlayOutPlayerInfo);
+		WrapperPlayServerPlayerInfo packet = new WrapperPlayServerPlayerInfo (
+				WrapperPlayServerPlayerInfo.Action.UPDATE_LATENCY,
+				new WrapperPlayServerPlayerInfo.PlayerData (
+						Component.text(player.getDisplayName()),
+						new UserProfile (player.getUniqueId(), player.getName()),
+						GameMode.ADVENTURE,
+						ping
+				)
+		);
+		this.packetAPI.getPlayerManager().sendPacket(player, packet);
 	}
 
 	private void fetchSkin(int index, GameProfile gameProfile, Skin skin) {
-		boolean continueAt = false;
-		if (Bukkit.getPluginManager().getPlugin("ViaVersion") != null) {
-			if (viaAPI.getPlayerVersion(player.getUniqueId()) >= 47) {
-				continueAt = true;
-			}
-		}
-
-		if (!continueAt) {
+		boolean continueAt = this.packetAPI.getPlayerManager().getClientVersion(player).isNewerThanOrEquals(ClientVersion.V_1_8);
+        if (!continueAt) {
 			return;
 		}
 
@@ -174,12 +149,14 @@ public class TabLayout {
 		GameProfile newGameProfile = new GameProfile(gameProfile.getId(), gameProfile.getName());
 		newGameProfile.getProperties().put(TEXTURE_KEY, getSkinProperty(skin));
 
-		EntityPlayer entityPlayer = new EntityPlayer(minecraftServer, worldServer, newGameProfile, playerInteractManager);
-		PacketPlayOutPlayerInfo removePacket = new PacketPlayOutPlayerInfo(EnumPlayerInfoAction.REMOVE_PLAYER, entityPlayer);
-		this.entityPlayer.playerConnection.sendPacket(removePacket);
-
-		PacketPlayOutPlayerInfo addPacket = new PacketPlayOutPlayerInfo(EnumPlayerInfoAction.ADD_PLAYER, entityPlayer);
-		this.entityPlayer.playerConnection.sendPacket(addPacket);
+		WrapperPlayServerPlayerInfo.PlayerData playerData = new WrapperPlayServerPlayerInfo.PlayerData (
+				Component.text(player.getDisplayName()),
+				new UserProfile (player.getUniqueId(), player.getName()),
+				GameMode.ADVENTURE,
+				0
+		);
+		this.packetAPI.getPlayerManager().sendPacket(player, new WrapperPlayServerPlayerInfo(WrapperPlayServerPlayerInfo.Action.REMOVE_PLAYER, playerData));
+		this.packetAPI.getPlayerManager().sendPacket(player, new WrapperPlayServerPlayerInfo(WrapperPlayServerPlayerInfo.Action.ADD_PLAYER, playerData));
 
 		profileMapping.put(index, newGameProfile);
 		skinMapping.put(index, skin);
@@ -190,12 +167,9 @@ public class TabLayout {
 	}
 
 	public void create() {
-		PacketPlayOutScoreboardTeam packet = new PacketPlayOutScoreboardTeam();
-		PacketPlayOutPlayerInfo packetInfo = new PacketPlayOutPlayerInfo();
+		WrapperPlayServerPlayerInfo packetInfo = new WrapperPlayServerPlayerInfo(WrapperPlayServerPlayerInfo.Action.UPDATE_LATENCY);
 
-		Reflection.getField(packetInfo.getClass(), "a", Object.class).set(packetInfo, PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER);
-		List<PacketPlayOutPlayerInfo.PlayerInfoData> infoDatas = (List<PacketPlayOutPlayerInfo.PlayerInfoData>) Reflection.getField(packetInfo.getClass(), "b", Object.class).get(packetInfo);
-
+		List<WrapperPlayServerPlayerInfo.PlayerData> infoData = Arrays.asList();
 		GameProfile gameProfile;
 
 		for (int row = 0; row < 20; row++) {
@@ -209,7 +183,12 @@ public class TabLayout {
 				gameProfile = new GameProfile(UUID.randomUUID(), getTeamAt(row, column));
 				gameProfile.getProperties().put(TEXTURE_KEY, property);
 
-				infoDatas.add(packetInfo.new PlayerInfoData(gameProfile, 0, WorldSettings.EnumGamemode.SURVIVAL, null));
+				infoData.add(new WrapperPlayServerPlayerInfo.PlayerData (
+						Component.text(player.getDisplayName()),
+						new UserProfile (gameProfile.getId(), gameProfile.getName()),
+						GameMode.SURVIVAL,
+						0
+				));
 
 				pingMapping.put(index, 0);
 				profileMapping.put(index, gameProfile);
@@ -225,55 +204,83 @@ public class TabLayout {
 			gameProfile = new GameProfile(UUID.randomUUID(), getTeamAt(index));
 			gameProfile.getProperties().put(TEXTURE_KEY, property);
 
-			infoDatas.add(packetInfo.new PlayerInfoData(gameProfile, 0, WorldSettings.EnumGamemode.SURVIVAL, null));
+			infoData.add(new WrapperPlayServerPlayerInfo.PlayerData (
+					Component.text(player.getDisplayName()),
+					new UserProfile (gameProfile.getId(), gameProfile.getName()),
+					GameMode.SURVIVAL,
+					0
+			));
 
 			pingMapping.put(index, 0);
 			profileMapping.put(index, gameProfile);
 		}
 
+		packetInfo.setPlayerDataList(infoData);
 		Bukkit.getLogger().info("Send info datas");
-		entityPlayer.playerConnection.sendPacket(packetInfo);
-
-		packet = new PacketPlayOutScoreboardTeam();
-		Reflection.getField(packet.getClass(), "a", String.class).set(packet, "tab");
-		Reflection.getField(packet.getClass(), "b", String.class).set(packet, "tab");
-		Reflection.getField(packet.getClass(), "h", int.class).set(packet, 0);
-		Reflection.getField(packet.getClass(), "f", int.class).set(packet, -1);
-		Reflection.getField(packet.getClass(), "e", String.class).set(packet, "always");
+		this.packetAPI.getPlayerManager().sendPacket(player, packetInfo);
 
 		Collection<String> players = Lists.newArrayList();
 		for (Player other : Bukkit.getOnlinePlayers()) {
 			players.add(other.getName());
 		}
 
-		Reflection.getField(packet.getClass(), "g", Object.class).set(packet, players);
-		this.entityPlayer.playerConnection.sendPacket(packet);
+		WrapperPlayServerTeams packet = new WrapperPlayServerTeams ( // FIXME: No idea that h = 0 & f = -1 is
+				"tab",
+				WrapperPlayServerTeams.TeamMode.ADD_ENTITIES,
+				new WrapperPlayServerTeams.ScoreBoardTeamInfo(
+						Component.text("tab"),
+						Component.empty(),
+						Component.empty(),
+						WrapperPlayServerTeams.NameTagVisibility.ALWAYS,
+						WrapperPlayServerTeams.CollisionRule.NEVER,
+						NamedTextColor.WHITE,
+						WrapperPlayServerTeams.OptionData.NONE
+				),
+				players
+		);
+
+		this.packetAPI.getPlayerManager().sendPacket(player, packet);
 
 		for (int row = 0; row < 20; row++) {
 			for (int column = 0; column < 4; column++) {
 				String teamName = "$" + getTeamAt(row, column);
 
-				packet = new PacketPlayOutScoreboardTeam();
-				Reflection.getField(packet.getClass(), "a", String.class).set(packet, teamName);
-				Reflection.getField(packet.getClass(), "b", String.class).set(packet, teamName);
-				Reflection.getField(packet.getClass(), "h", int.class).set(packet, 0);
-				Reflection.getField(packet.getClass(), "f", int.class).set(packet, -1);
-				Reflection.getField(packet.getClass(), "e", String.class).set(packet, "always");
-				Reflection.getField(packet.getClass(), "g", Object.class).set(packet, Collections.singleton(getTeamAt(row, column)));
+				packet = new WrapperPlayServerTeams ( // FIXME: No idea that h = 0 & f = -1 is
+						teamName,
+						WrapperPlayServerTeams.TeamMode.ADD_ENTITIES,
+						new WrapperPlayServerTeams.ScoreBoardTeamInfo(
+								Component.text(teamName),
+								Component.empty(),
+								Component.empty(),
+								WrapperPlayServerTeams.NameTagVisibility.ALWAYS,
+								WrapperPlayServerTeams.CollisionRule.NEVER,
+								NamedTextColor.WHITE,
+								WrapperPlayServerTeams.OptionData.NONE
+						),
+						Collections.singleton(getTeamAt(row, column))
+				);
 
-				this.entityPlayer.playerConnection.sendPacket(packet);
+				this.packetAPI.getPlayerManager().sendPacket(player, packet);
 			}
 		}
 
-		PacketPlayOutScoreboardTeam scoreboardTeam = new PacketPlayOutScoreboardTeam();
-		Reflection.getField(scoreboardTeam.getClass(), "a", String.class).set(scoreboardTeam, "tab");
-		Reflection.getField(scoreboardTeam.getClass(), "b", String.class).set(scoreboardTeam, "tab");
-		Reflection.getField(scoreboardTeam.getClass(), "h", int.class).set(scoreboardTeam, 3);
-		Reflection.getField(scoreboardTeam.getClass(), "f", int.class).set(scoreboardTeam, -1);
-		Reflection.getField(scoreboardTeam.getClass(), "g", Object.class).set(scoreboardTeam, Collections.singleton(player.getName()));
+		WrapperPlayServerTeams scoreboardTeam = new WrapperPlayServerTeams( // FIXME: No idea that h = 3 & f = -1 is
+				"team",
+				WrapperPlayServerTeams.TeamMode.ADD_ENTITIES,
+				new WrapperPlayServerTeams.ScoreBoardTeamInfo(
+						Component.text("team"),
+						Component.empty(),
+						Component.empty(),
+						WrapperPlayServerTeams.NameTagVisibility.ALWAYS,
+						WrapperPlayServerTeams.CollisionRule.NEVER,
+						NamedTextColor.WHITE,
+						WrapperPlayServerTeams.OptionData.NONE
+				),
+				player.getName()
+		);
 
 		for (Player target : Bukkit.getOnlinePlayers()) {
-			((CraftPlayer) target).getHandle().playerConnection.sendPacket(scoreboardTeam);
+			this.packetAPI.getPlayerManager().sendPacket(target, scoreboardTeam);
 		}
 	}
 

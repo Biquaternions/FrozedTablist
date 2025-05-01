@@ -9,8 +9,11 @@ version = "1.0-SNAPSHOT-R0-1.8"
 
 repositories {
     mavenCentral()
-    maven("https://repo.viaversion.com") {
-        name = "viaversion-repo"
+    maven("https://repo.codemc.io/repository/maven-releases/") {
+        name = "codemc-releases"
+    }
+    maven("https://repo.codemc.io/repository/maven-snapshots/") {
+        name = "codemc-snapshots"
     }
 }
 
@@ -18,7 +21,7 @@ dependencies {
     compileOnly(files("libs/PaperSpigot-1.8.8-R0.1-SNAPSHOT.jar"))
 
     compileOnly("org.projectlombok:lombok:1.18.38")
-    compileOnly("com.viaversion:viaversion-api:5.3.2")
+    compileOnly("com.github.retrooper:packetevents-spigot:2.7.0")
 
     annotationProcessor("org.projectlombok:lombok:1.18.38")
 }
@@ -52,7 +55,7 @@ publishing {
 
             pom {
                 name.set(project.name)
-                description.set("FrozedClub Frozed Tablist")
+                description.set("Frozed Tablist Library")
                 url.set("https://frozed.club/")
             }
         }

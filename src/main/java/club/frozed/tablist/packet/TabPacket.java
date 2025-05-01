@@ -12,7 +12,7 @@ import org.bukkit.plugin.Plugin;
  * Project: TabAPI
  * Date: 11/12/2020 @ 09:58
  */
-public class TabPacket extends TinyProtocol {
+public class TabPacket extends TinyProtocol { // FIXME: Kept for reference, can be removed once TabPacketListener is ready to use
 
 	public TabPacket(Plugin plugin) {
 		super(plugin);
@@ -34,4 +34,5 @@ public class TabPacket extends TinyProtocol {
 
 		return super.onPacketOutAsync(reciever, channel, object);
 	}
+
 }
